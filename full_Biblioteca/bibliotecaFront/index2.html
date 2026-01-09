@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Dashboard | Biblioteca</title>
+
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: #f1f3f6;
+        }
+
+        /* LAYOUT */
+        .layout {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        aside {
+            width: 240px;
+            background: #111827;
+            color: #fff;
+            padding: 20px;
+        }
+
+        aside h2 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        aside button {
+            width: 100%;
+            background: none;
+            border: none;
+            color: #cbd5e1;
+            padding: 12px;
+            text-align: left;
+            cursor: pointer;
+            border-radius: 6px;
+            margin-bottom: 8px;
+        }
+
+        aside button.active,
+        aside button:hover {
+            background: #1f2937;
+            color: #fff;
+        }
+
+        main {
+            flex: 1;
+            padding: 25px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+        }
+
+        section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 10px;
+            margin: 6px 0;
+        }
+
+        button.primary {
+            background: #2563eb;
+            color: #fff;
+            border: none;
+            border-radius: 6px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #e5e7eb;
+            text-align: left;
+        }
+
+        .actions button {
+            margin-right: 5px;
+            padding: 6px 10px;
+            width: auto;
+        }
+
+        .edit {
+            background: #f59e0b;
+            color: #fff;
+            border: none;
+        }
+
+        .delete {
+            background: #dc2626;
+            color: #fff;
+            border: none;
+        }
+
+        /* Paginação */
+        .paginacao {
+            margin-top: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .paginacao button {
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            background: #f3f4f6;
+            cursor: pointer;
+        }
+
+        .paginacao button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app" class="layout">
+
+        <!-- SIDEBAR -->
+        <aside>
+            <h2>📚 Biblioteca</h2>
+            <button @click="aba='autores'" :class="{active: aba==='autores'}"><i class="fa fa-user-pen"></i>
+                Autores</button>
+            <button @click="aba='livros'" :class="{active: aba==='livros'}"><i class="fa fa-book"></i> Livros</button>
+            <button @click="aba='leitores'" :class="{active: aba==='leitores'}"><i class="fa fa-users"></i>
+                Leitores</button>
+            <button @click="aba='bibliotecarios'" :class="{active: aba==='bibliotecarios'}"><i
+                    class="fa fa-user-tie"></i> Bibliotecários</button>
+        </aside>
+
+        <!-- MAIN -->
+        <main>
+
+            <!-- AUTORES -->
+            <section v-if="aba==='autores'">
+                <h1>Autores</h1>
+                <input v-model="autorForm.nome" placeholder="Nome">
+                <input v-model="autorForm.nacionalidade" placeholder="Nacionalidade">
+                <input type="date" v-model="autorForm.data_nascimento">
+                <button class="primary" @click="salvarAutor">{{ autorEdit ? 'Atualizar' : 'Salvar' }}</button>
+
+                <table>
+                    <tr v-for="a in autoresPagina" :key="a.id">
+                        <td>{{ a.nome }}</td>
+                        <td>{{ a.nacionalidade || '—' }}</td>
+                        <td>{{ a.data_nascimento || '—' }}</td>
+                        <td class="actions">
+                            <button class="edit" @click="editarAutor(a)">Editar</button>
+                            <button class="delete" @click="removerAutor(a.id)">Excluir</button>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="paginacao">
+                    <button @click="paginaAutores--" :disabled="paginaAutores===1">Anterior</button>
+                    Página {{ paginaAutores }} de {{ totalPaginasAutores }}
+                    <button @click="paginaAutores++" :disabled="paginaAutores===totalPaginasAutores">Próximo</button>
+                </div>
+            </section>
+
+            <!-- LIVROS -->
+            <section v-if="aba==='livros'">
+                <h1>Livros</h1>
+                <input v-model="livroForm.titulo" placeholder="Título">
+                <select v-model="livroForm.autor">
+                    <option value="">Autor</option>
+                    <option v-for="a in autores" :value="a.id">{{ a.nome }}</option>
+                </select>
+                <input v-model="livroForm.ano_publicacao" placeholder="Ano">
+
+                <button class="primary" @click="salvarLivro">{{ livroEdit ? 'Atualizar' : 'Salvar' }}</button>
+
+                <table>
+                    <tr v-for="l in livrosPagina" :key="l.id">
+                        <td>{{ l.titulo }}</td>
+                        <td>{{ l.autor_nome }}</td>
+                        <td>{{ l.ano_publicacao }}</td>
+                        <td>{{ l.disponivel ? 'Sim' : 'Não' }}</td>
+                        <td class="actions">
+                            <button class="edit" @click="editarLivro(l)">Editar</button>
+                            <button class="delete" @click="removerLivro(l.id)">Excluir</button>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="paginacao">
+                    <button @click="paginaLivros--" :disabled="paginaLivros===1">Anterior</button>
+                    Página {{ paginaLivros }} de {{ totalPaginasLivros }}
+                    <button @click="paginaLivros++" :disabled="paginaLivros===totalPaginasLivros">Próximo</button>
+                </div>
+            </section>
+
+            <!-- LEITORES -->
+            <section v-if="aba==='leitores'">
+                <h1>Leitores</h1>
+                <input v-model="leitorForm.nome" placeholder="Nome">
+                <input v-model="leitorForm.email" placeholder="Email">
+
+                <button class="primary" @click="salvarLeitor">{{ leitorEdit ? 'Atualizar' : 'Salvar' }}</button>
+
+                <table>
+                    <tr v-for="l in leitoresPagina" :key="l.id">
+                        <td>{{ l.nome }}</td>
+                        <td>{{ l.email }}</td>
+                        <td class="actions">
+                            <button class="edit" @click="editarLeitor(l)">Editar</button>
+                            <button class="delete" @click="removerLeitor(l.id)">Excluir</button>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="paginacao">
+                    <button @click="paginaLeitores--" :disabled="paginaLeitores===1">Anterior</button>
+                    Página {{ paginaLeitores }} de {{ totalPaginasLeitores }}
+                    <button @click="paginaLeitores++" :disabled="paginaLeitores===totalPaginasLeitores">Próximo</button>
+                </div>
+            </section>
+
+            <!-- BIBLIOTECÁRIOS -->
+            <section v-if="aba==='bibliotecarios'">
+                <h1>Bibliotecários</h1>
+                <input v-model="bibForm.nome" placeholder="Nome">
+                <input v-model="bibForm.email" placeholder="Email">
+                <input v-model="bibForm.telefone" placeholder="Telefone">
+
+                <button class="primary" @click="salvarBib">{{ bibEdit ? 'Atualizar' : 'Salvar' }}</button>
+
+                <table>
+                    <tr v-for="b in bibliotecariosPagina" :key="b.id">
+                        <td>{{ b.nome }}</td>
+                        <td>{{ b.email }}</td>
+                        <td>{{ b.telefone }}</td>
+                        <td class="actions">
+                            <button class="edit" @click="editarBib(b)">Editar</button>
+                            <button class="delete" @click="removerBib(b.id)">Excluir</button>
+                        </td>
+                    </tr>
+                </table>
+
+                <div class="paginacao">
+                    <button @click="paginaBib--" :disabled="paginaBib===1">Anterior</button>
+                    Página {{ paginaBib }} de {{ totalPaginasBib }}
+                    <button @click="paginaBib++" :disabled="paginaBib===totalPaginasBib">Próximo</button>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        const { createApp } = Vue;
+
+        createApp({
+            data() {
+                return {
+                    api: 'http://127.0.0.1:8000/api',
+                    aba: 'autores',
+
+                    autores: [], livros: [], leitores: [], bibliotecarios: [],
+
+                    autorForm: {}, livroForm: {}, leitorForm: {}, bibForm: {},
+                    autorEdit: false, livroEdit: false, leitorEdit: false, bibEdit: false,
+                    autorId: null, livroId: null, leitorId: null, bibId: null,
+
+                    /* PAGINAÇÃO */
+                    paginaAutores: 1, paginaLivros: 1, paginaLeitores: 1, paginaBib: 1,
+                    itensPorPagina: 5
+                }
+            },
+            computed: {
+                // Autores
+                totalPaginasAutores() { return Math.ceil(this.autores.length / this.itensPorPagina) },
+                autoresPagina() {
+                    const inicio = (this.paginaAutores - 1) * this.itensPorPagina;
+                    return this.autores.slice(inicio, inicio + this.itensPorPagina);
+                },
+                // Livros
+                totalPaginasLivros() { return Math.ceil(this.livros.length / this.itensPorPagina) },
+                livrosPagina() {
+                    const inicio = (this.paginaLivros - 1) * this.itensPorPagina;
+                    return this.livros.slice(inicio, inicio + this.itensPorPagina);
+                },
+                // Leitores
+                totalPaginasLeitores() { return Math.ceil(this.leitores.length / this.itensPorPagina) },
+                leitoresPagina() {
+                    const inicio = (this.paginaLeitores - 1) * this.itensPorPagina;
+                    return this.leitores.slice(inicio, inicio + this.itensPorPagina);
+                },
+                // Bibliotecários
+                totalPaginasBib() { return Math.ceil(this.bibliotecarios.length / this.itensPorPagina) },
+                bibliotecariosPagina() {
+                    const inicio = (this.paginaBib - 1) * this.itensPorPagina;
+                    return this.bibliotecarios.slice(inicio, inicio + this.itensPorPagina);
+                }
+            },
+            methods: {
+                carregarTudo() {
+                    axios.get(`${this.api}/autores/`).then(r => this.autores = r.data)
+                    axios.get(`${this.api}/livros/`).then(r => this.livros = r.data)
+                    axios.get(`${this.api}/leitores/`).then(r => this.leitores = r.data)
+                    axios.get(`${this.api}/bibliotecarios/`).then(r => this.bibliotecarios = r.data)
+                },
+
+                /* AUTORES */
+                salvarAutor() {
+                    const req = this.autorEdit
+                        ? axios.put(`${this.api}/autores/${this.autorId}/`, this.autorForm)
+                        : axios.post(`${this.api}/autores/`, this.autorForm);
+                    req.then(() => { this.resetAutor(); this.carregarTudo() })
+                },
+                editarAutor(a) { this.autorEdit = true; this.autorId = a.id; this.autorForm = { ...a } },
+                removerAutor(id) { axios.delete(`${this.api}/autores/${id}/`).then(() => this.carregarTudo()) },
+                resetAutor() { this.autorEdit = false; this.autorId = null; this.autorForm = {} },
+
+                /* LIVROS */
+                salvarLivro() {
+                    const req = this.livroEdit
+                        ? axios.put(`${this.api}/livros/${this.livroId}/`, this.livroForm)
+                        : axios.post(`${this.api}/livros/`, this.livroForm);
+                    req.then(() => { this.resetLivro(); this.carregarTudo() })
+                },
+                editarLivro(l) { this.livroEdit = true; this.livroId = l.id; this.livroForm = { ...l } },
+                removerLivro(id) { axios.delete(`${this.api}/livros/${id}/`).then(() => this.carregarTudo()) },
+                resetLivro() { this.livroEdit = false; this.livroId = null; this.livroForm = {} },
+
+                /* LEITORES */
+                salvarLeitor() {
+                    const req = this.leitorEdit
+                        ? axios.put(`${this.api}/leitores/${this.leitorId}/`, this.leitorForm)
+                        : axios.post(`${this.api}/leitores/`, this.leitorForm);
+                    req.then(() => { this.resetLeitor(); this.carregarTudo() })
+                },
+                editarLeitor(l) { this.leitorEdit = true; this.leitorId = l.id; this.leitorForm = { ...l } },
+                removerLeitor(id) { axios.delete(`${this.api}/leitores/${id}/`).then(() => this.carregarTudo()) },
+                resetLeitor() { this.leitorEdit = false; this.leitorId = null; this.leitorForm = {} },
+
+                /* BIBLIOTECÁRIOS */
+                salvarBib() {
+                    const req = this.bibEdit
+                        ? axios.put(`${this.api}/bibliotecarios/${this.bibId}/`, this.bibForm)
+                        : axios.post(`${this.api}/bibliotecarios/`, this.bibForm);
+                    req.then(() => { this.resetBib(); this.carregarTudo() })
+                },
+                editarBib(b) { this.bibEdit = true; this.bibId = b.id; this.bibForm = { ...b } },
+                removerBib(id) { axios.delete(`${this.api}/bibliotecarios/${id}/`).then(() => this.carregarTudo()) },
+                resetBib() { this.bibEdit = false; this.bibId = null; this.bibForm = {} }
+
+            },
+            mounted() { this.carregarTudo() }
+        }).mount('#app')
+    </script>
+
+</body>
+
+</html>

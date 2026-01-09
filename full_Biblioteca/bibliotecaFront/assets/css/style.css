@@ -1,0 +1,24 @@
+.acoes {
+    margin-top: 10px;
+    display: flex;
+    gap: 10px;
+}
+
+.edit {
+    background: #facc15;
+}
+
+.delete {
+    background: #ef4444;
+}
+
+.cancel {
+    margin-top: 10px;
+    background: #64748b;
+}
+
+.check {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}

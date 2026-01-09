@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="pt">
+
+<head>
+    <meta charset="UTF-8">
+    <title>CRUD Biblioteca</title>
+
+    <!-- Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+
+    <!-- Axios -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f9;
+            padding: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        /* ===== TABS ===== */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        .tabs button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 6px;
+            background: #ddd;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .tabs button.active {
+            background: #007bff;
+            color: #fff;
+        }
+
+        section {
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        input,
+        select,
+        button {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        th,
+        td {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+            text-align: left;
+        }
+
+        .edit {
+            background: orange;
+            color: #fff;
+            border: none;
+        }
+
+        .delete {
+            background: red;
+            color: #fff;
+            border: none;
+        }
+
+        .actions button {
+            margin-right: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div id="app">
+        <h1>📚 Sistema de Biblioteca</h1>
+
+        <!-- ABAS -->
+        <nav class="tabs">
+            <button :class="{ active: abaAtiva === 'autores' }" @click="abaAtiva = 'autores'">
+                Autores
+            </button>
+
+            <button :class="{ active: abaAtiva === 'livros' }" @click="abaAtiva = 'livros'">
+                Livros
+            </button>
+        </nav>
+
+        <!-- ===== ABA AUTORES ===== -->
+        <section v-if="abaAtiva === 'autores'">
+            <h2>{{ autorEditando ? 'Editar Autor' : 'Novo Autor' }}</h2>
+
+            <form @submit.prevent="salvarAutor">
+                <input v-model="autorForm.nome" placeholder="Nome do autor" required>
+                <input v-model="autorForm.nacionalidade" placeholder="Nacionalidade">
+                <input type="date" v-model="autorForm.data_nascimento">
+
+                <button type="submit">
+                    {{ autorEditando ? 'Atualizar' : 'Salvar' }}
+                </button>
+            </form>
+
+            <h2>Lista de Autores</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Nacionalidade</th>
+                        <th>Data Nascimento</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="autor in autores" :key="autor.id">
+                        <td>{{ autor.nome }}</td>
+                        <td>{{ autor.nacionalidade || '—' }}</td>
+                        <td>{{ autor.data_nascimento || '—' }}</td>
+                        <td class="actions">
+                            <button class="edit" @click="editarAutor(autor)">Editar</button>
+                            <button class="delete" @click="removerAutor(autor.id)">Remover</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <!-- ===== ABA LIVROS ===== -->
+        <section v-if="abaAtiva === 'livros'">
+            <h2>{{ livroEditando ? 'Editar Livro' : 'Novo Livro' }}</h2>
+
+            <form @submit.prevent="salvarLivro">
+                <input v-model="livroForm.titulo" placeholder="Título" required>
+
+                <select v-model="livroForm.autor" required>
+                    <option value="">Selecione o autor</option>
+                    <option v-for="a in autores" :value="a.id">
+                        {{ a.nome }}
+                    </option>
+                </select>
+
+                <input type="number" v-model="livroForm.ano_publicacao" placeholder="Ano de publicação" required>
+
+                <label>
+                    <input type="checkbox" v-model="livroForm.disponivel">
+                    Disponível
+                </label>
+
+                <button type="submit">
+                    {{ livroEditando ? 'Atualizar' : 'Salvar' }}
+                </button>
+            </form>
+
+            <h2>Lista de Livros</h2>
+
+            <table>
+                <thead>
+                    <tr>
+                        <th>Título</th>
+                        <th>Autor</th>
+                        <th>Ano</th>
+                        <th>Disponível</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="livro in livros" :key="livro.id">
+                        <td>{{ livro.titulo }}</td>
+                        <td>{{ livro.autor_nome }}</td>
+                        <td>{{ livro.ano_publicacao }}</td>
+                        <td>{{ livro.disponivel ? 'Sim' : 'Não' }}</td>
+                        <td class="actions">
+                            <button class="edit" @click="editarLivro(livro)">Editar</button>
+                            <button class="delete" @click="removerLivro(livro.id)">Remover</button>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <script>
+        const { createApp } = Vue
+
+        createApp({
+            data() {
+                return {
+                    api: 'http://127.0.0.1:8000/api',
+                    abaAtiva: 'autores',
+
+                    /* AUTORES */
+                    autores: [],
+                    autorEditando: false,
+                    autorId: null,
+                    autorForm: {
+                        nome: '',
+                        nacionalidade: '',
+                        data_nascimento: ''
+                    },
+
+                    /* LIVROS */
+                    livros: [],
+                    livroEditando: false,
+                    livroId: null,
+                    livroForm: {
+                        titulo: '',
+                        autor: '',
+                        ano_publicacao: '',
+                        disponivel: true
+                    }
+                }
+            },
+
+            methods: {
+                /* AUTORES */
+                carregarAutores() {
+                    axios.get(`${this.api}/autores/`)
+                        .then(res => this.autores = res.data)
+                },
+
+                salvarAutor() {
+                    const req = this.autorEditando
+                        ? axios.put(`${this.api}/autores/${this.autorId}/`, this.autorForm)
+                        : axios.post(`${this.api}/autores/`, this.autorForm)
+
+                    req.then(() => {
+                        this.resetAutorForm()
+                        this.carregarAutores()
+                    })
+                },
+
+                editarAutor(autor) {
+                    this.autorEditando = true
+                    this.autorId = autor.id
+                    this.autorForm = { ...autor }
+                },
+
+                removerAutor(id) {
+                    if (confirm('Deseja remover este autor?')) {
+                        axios.delete(`${this.api}/autores/${id}/`)
+                            .then(() => {
+                                this.carregarAutores()
+                                this.carregarLivros()
+                            })
+                    }
+                },
+
+                resetAutorForm() {
+                    this.autorEditando = false
+                    this.autorId = null
+                    this.autorForm = {
+                        nome: '',
+                        nacionalidade: '',
+                        data_nascimento: ''
+                    }
+                },
+
+                /* LIVROS */
+                carregarLivros() {
+                    axios.get(`${this.api}/livros/`)
+                        .then(res => this.livros = res.data)
+                },
+
+                salvarLivro() {
+                    const req = this.livroEditando
+                        ? axios.put(`${this.api}/livros/${this.livroId}/`, this.livroForm)
+                        : axios.post(`${this.api}/livros/`, this.livroForm)
+
+                    req.then(() => {
+                        this.resetLivroForm()
+                        this.carregarLivros()
+                    })
+                },
+
+                editarLivro(livro) {
+                    this.livroEditando = true
+                    this.livroId = livro.id
+                    this.livroForm = {
+                        titulo: livro.titulo,
+                        autor: livro.autor,
+                        ano_publicacao: livro.ano_publicacao,
+                        disponivel: livro.disponivel
+                    }
+                },
+
+                removerLivro(id) {
+                    if (confirm('Deseja remover este livro?')) {
+                        axios.delete(`${this.api}/livros/${id}/`)
+                            .then(() => this.carregarLivros())
+                    }
+                },
+
+                resetLivroForm() {
+                    this.livroEditando = false
+                    this.livroId = null
+                    this.livroForm = {
+                        titulo: '',
+                        autor: '',
+                        ano_publicacao: '',
+                        disponivel: true
+                    }
+                }
+            },
+
+            mounted() {
+                this.carregarAutores()
+                this.carregarLivros()
+            }
+        }).mount('#app')
+    </script>
+
+</body>
+
+</html>
